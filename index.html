@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Emoji kódoló/dekódoló</title>
+<style>
+  :root{--bg:#071022;--card:#0f1724;--muted:#9ca3af;--accent:#06b6d4;--glass:rgba(255,255,255,0.02);}
+  html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial;color:#e6eef6;background:linear-gradient(180deg,#04101a,#081226);padding:20px;}
+  .container{max-width:1100px;margin:0 auto;}
+  .layout{display:grid;grid-template-columns:1fr 360px;gap:14px;}
+  .card{background:var(--card);padding:14px;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.02);}
+  label.small{display:block;color:var(--muted);font-size:13px;margin-bottom:6px;}
+  textarea,input[type="text"],input[type="number"]{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);background:var(--glass);color:inherit;resize:vertical;}
+  textarea{min-height:120px;font-family:monospace;}
+  .row{display:flex;gap:10px;align-items:center;}
+  button{background:var(--accent);color:#042331;border:none;padding:8px 12px;border-radius:8px;cursor:pointer;font-weight:600;}
+  button.ghost{background:transparent;border:1px solid rgba(255,255,255,0.04);color:var(--muted);padding:6px 8px;}
+  .emoji-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;max-height:360px;overflow:auto;padding:6px;background:rgba(255,255,255,0.01);border-radius:8px;}
+  .emoji-btn{background:transparent;border:1px solid rgba(255,255,255,0.02);padding:8px;border-radius:8px;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+  .emoji-btn.selected{outline:3px solid rgba(6,182,212,0.12);box-shadow:0 8px 24px rgba(6,182,212,0.04);}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
+  .output-box{background:linear-gradient(180deg,rgba(255,255,255,0.01),rgba(255,255,255,0.005));padding:10px;border-radius:8px;font-family:monospace;word-break:break-all;color:#cfeff6;min-height:60px;}
+  .small-muted{font-size:12px;color:var(--muted);}
+  .modal{position:fixed;inset:0;background:linear-gradient(rgba(2,6,23,0.7),rgba(2,6,23,0.75));display:flex;align-items:center;justify-content:center;z-index:40;}
+  .modal .card{width:840px;max-width:96%;}
+  .flex{display:flex;gap:8px;align-items:center;}
+</style>
+</head>
+<body>
+<div class="container">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+    <h2 style="margin:0;font-size:18px;">Emoji kódoló</h2>
+    <div style="color:var(--muted);font-size:13px;"></div>
+  </div>
+
+  <div class="layout">
+    <div class="card">
+      <div class="row" style="margin-bottom:12px;">
+        <label><input type="radio" name="mode" value="encode" checked> Kódolás</label>
+        <label style="margin-left:12px;"><input type="radio" name="mode" value="decode"> Dekódolás</label>
+      </div>
+
+      <div id="encodeArea">
+        <label class="small">Szöveg</label>
+        <textarea id="plainText" placeholder="Szövegbevitel"></textarea>
+
+        <div style="display:flex;gap:10px;margin-top:8px;">
+          <div style="flex:1;">
+            <label class="small">Szegmens (byte) Ezekkel nem kell foglalkozni, ezek fejlesztői beállítások. Hagyd alapértelmezetten.</label>
+            <input id="segmentSize" type="number" min="16" max="65536" value="512" />
+            <div class="small-muted">Rejtett adat mérete</div>
+          </div>
+          <div style="width:170px;">
+            <label class="small">Max iteráció</label>
+            <input id="maxRounds" type="number" min="1" max="128" value="32" />
+            <div class="small-muted"></div>
+          </div>
+        </div>
+
+        <div style="margin-top:12px;">
+          <label class="small">Kiválasztott emoji-k</label>
+          <div id="selectedEmojis" class="flex" style="flex-wrap:wrap;gap:8px;margin-bottom:8px;"></div>
+          <button class="ghost" id="openPaletteBtn">Paletta</button>
+        </div>
+
+        <div class="controls" style="margin-top:12px;">
+          <button id="doEncode">Kódol</button>
+          <button id="clearEncode" class="ghost">Töröl</button>
+        </div>
+
+        <div style="margin-top:12px;">
+          <label class="small">Kimenet</label>
+          <div class="output-box" id="encodedOutput"></div>
+          <div style="margin-top:8px;"><button id="copyEncoded">Másol</button></div>
+        </div>
+      </div>
+
+      <div id="decodeArea" style="display:none;">
+        <label class="small">Titkosított szöveg (kötőjellel elválasztva)</label>
+        <textarea id="encodedInput" placeholder="Pl.: 😀-🚀 - ..."></textarea>
+
+        <div style="margin-top:8px;">
+          <label class="small">Dekódolt</label>
+          <div class="output-box" id="decodedOutput"></div>
+          <div style="margin-top:8px;"><button id="copyDecoded">Másol</button></div>
+        </div>
+
+        <div class="controls" style="margin-top:8px;">
+          <button id="doDecode">Dekódol</button>
+          <button id="clearDecode" class="ghost">Töröl</button>
+        </div>
+      </div>
+    </div>
+
+    <aside class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div class="small-muted">Paletta</div>
+        <input id="emojiSearch" type="text" placeholder="keresés" style="width:140px;padding:6px;border-radius:6px;background:var(--glass);border:1px solid rgba(255,255,255,0.03);" />
+      </div>
+      <div id="emojiPalette" class="emoji-grid" style="margin-top:10px;"></div>
+    </aside>
+  </div>
+</div>
+
+<div id="modal" style="display:none;" class="modal">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <h3 style="margin:0;font-size:16px;">Válassz emojikat</h3>
+      <div><button id="closeModal" class="ghost">Bezár</button></div>
+    </div>
+    <div id="modalPalette" class="emoji-grid" style="margin-top:12px;"></div>
+    <div style="margin-top:12px;text-align:right;">
+      <button id="modalDone">Kész</button>
+    </div>
+  </div>
+</div>
+
+<script>
+
+/*        Ez a kulcs: vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv  A program ez alapján dekódol és kódol. Ide megadhatsz bármilyen, legalább 40 karakter hosszú kulcsot, a két idézőjel közé. pl.: "w6#n=#VB6)Yu2%lve,_8W0n;6oKRr=p}HIbh>.nJ" és ha küldesz valakinek ilyen emojit, akkor ő csak akkor tudja dekódolni ha nála is ugyanaz a kulcs van beállítva mint nálad. */
+
+const EMBEDDED_KEY = "w6#n=#VB6)Yu2%lve,_8W0n;6oKRr=p}HIbh>.nJ";
+
+/* belső beállítások */
+const Z0 = '\u200B'; // 0
+const Z1 = '\u200C'; // 1
+const SEPARATOR = '-';
+const MAX_MODAL_ROUNDS = 128;
+
+/* emoji lista (bővíthető) */
+const EMOJIS = [
+"😀","😃","😄","😁","😆","😅","😂","🤣","😊","😇","🙂","🙃","😉","😌","😍","🥰",
+"😘","😗","😙","😚","😋","😛","😝","😜","🤪","🤨","🧐","🤓","😎","🤩","🥳","😏",
+"😒","😞","😔","😟","😕","🙁","☹️","😣","😖","😫","😩","🥺","😢","😭","😤","😠",
+"😡","🤬","🤯","😳","🥵","🥶","😱","😨","😰","😥","😓","🤗","🤔","🤭","🤫","🤥",
+"🫢","🫣","😶","😐","😑","😬","🙄","😯","😦","😧","😮","😲","🥱","😴","🤤","😪",
+"🐶","🐱","🐭","🐹","🐰","🦊","🐻","🐼","🐨","🐯","🦁","🐮","🐷","🐽","🐸","🐵",
+"🙈","🙉","🙊","🐒","🐔","🐧","🐦","🐤","🦆","🦅","🦉","🦇","🐺","🦄","🐝","🐛",
+"🦋","🐌","🐞","🐜","🪲","🪳","🦟","🦗","🐢","🐍","🦎","🦂","🐙","🦑","🦐","🦞",
+"🍏","🍎","🍐","🍊","🍋","🍌","🍉","🍇","🍓","🫐","🍒","🍑","🥭","🍍","🥥","🥝",
+"🍅","🍆","🥑","🥦","🥬","🥕","🌽","🥔","🍠","🥐","🍞","🥖","🥨","🧀","🍗","🍖",
+"🍕","🌭","🍔","🍟","🥪","🌮","🌯","🥙","🧆","🍣","🍱","🍛","🍜","🍲","🍥","🥮",
+"☕","🫖","🍵","🧋","🍺","🍻","🥂","🍷","🥃","🍸","🍹","🧉","⚽","🏀","🏈","⚾",
+"🎾","🏐","🏉","🎱","🏓","🏸","🥅","🏒","🏑","🥏","🎯","🎳","🎮","🎲","🧩","🪀",
+"🎹","🎸","🎻","🥁","🎷","🎺","🪗","🎶","🎵","🎤","🎧","📷","🎬","📺","📻","💡",
+"🔦","🕯️","🗝️","🔒","🔑","💣","🪓","🔧","🔨","🪚","⚙️","⏰","⏱️","📡","🔋","💻",
+"🖥️","🖨️","🧭","🪐","🌍","🌎","🌏","☀️","🌤️","⛅","🌧️","☁️","⚡","🔥","💧","❄️",
+"🌊","🌪️","🌈","🌵","🌲","🌳","🌴","🌱","🌿","☘️","🍀","🌺","🌸","🌼","🌻","🌹",
+"🚗","🚕","🚙","🚌","🚎","🏎️","🚓","🚑","🚒","🚐","🚚","🚛","🚜","🛴","🚲","🛵",
+"✈️","🛩️","🛰️","🚀","⛵","🚢","🏁","🎯","🏆","🏅","🥇","🥈","🥉","🎗️","🧭","🪂"
+];
+
+/* UI elemek */
+const emojiPalette = document.getElementById('emojiPalette');
+const modalPalette = document.getElementById('modalPalette');
+const selectedEmojisDiv = document.getElementById('selectedEmojis');
+const openPaletteBtn = document.getElementById('openPaletteBtn');
+const modal = document.getElementById('modal');
+const modalDone = document.getElementById('modalDone');
+const closeModal = document.getElementById('closeModal');
+const emojiSearch = document.getElementById('emojiSearch');
+const modalPaletteEl = document.getElementById('modalPalette');
+
+const encodedOutput = document.getElementById('encodedOutput');
+const decodedOutput = document.getElementById('decodedOutput');
+
+let selected = [];
+let modalSelected = new Set();
+
+function renderPalette(root, clickHandler, filter=""){
+  root.innerHTML = '';
+  const f = filter.trim().toLowerCase();
+  for (let e of EMOJIS){
+    if (f && !e.includes(f) && !emojiNameMatch(e, f)) continue;
+    const btn = document.createElement('button');
+    btn.className = 'emoji-btn';
+    btn.textContent = e;
+    btn.onclick = ()=>clickHandler(e, btn);
+    root.appendChild(btn);
+  }
+}
+// Emoji kereső szótár (pár gyakori emojihoz magyar kulcsszó)
+function emojiNameMatch(e, q){
+  const keywords = {
+    "😀":"arc","🚀":"rakéta","🐱":"cica","🍕":"pizza","🎩":"kalap","📡":"antenna","🎵":"hangjegy",
+    "🔥":"tűz","🌍":"Föld","😃":"arc2","😄":"arc3","😂":"nevet","😍":"szeret","👍":"like"
+  };
+  const s = (keywords[e]||"").toLowerCase();
+  return s.includes(q);
+}
+
+function renderSelected(){
+  selectedEmojisDiv.innerHTML = '';
+  for (let i=0;i<selected.length;i++){
+    const e = selected[i];
+    const b = document.createElement('button');
+    b.className = 'emoji-btn';
+    b.style.fontSize='20px';
+    b.textContent = e;
+    const rem = document.createElement('button');
+    rem.textContent='✖';
+    rem.style.marginLeft='6px';
+    rem.className='ghost';
+    rem.onclick = ()=>{ selected.splice(i,1); renderSelected(); };
+    const wrapper = document.createElement('div');
+    wrapper.style.display='flex';
+    wrapper.style.alignItems='center';
+    wrapper.appendChild(b);
+    wrapper.appendChild(rem);
+    selectedEmojisDiv.appendChild(wrapper);
+  }
+}
+
+renderPalette(emojiPalette, (e,btn)=>{
+  if (!selected.includes(e)) selected.push(e);
+  renderSelected();
+});
+openPaletteBtn.onclick = ()=>{ modalSelected = new Set(selected); renderPalette(modalPalette, modalClick); modal.style.display='flex'; }
+closeModal.onclick = ()=>{ modal.style.display='none'; }
+modalDone.onclick = ()=>{
+  selected = Array.from(modalSelected);
+  renderSelected();
+  modal.style.display='none';
+};
+function modalClick(e,btn){
+  if (modalSelected.has(e)) modalSelected.delete(e);
+  else modalSelected.add(e);
+  // visual
+  renderModalSelection();
+}
+function renderModalSelection(){
+  modalPalette.querySelectorAll('.emoji-btn').forEach(b=>{
+    const ch = b.textContent;
+    if (modalSelected.has(ch)) b.classList.add('selected'); else b.classList.remove('selected');
+  });
+}
+emojiSearch.addEventListener('input', ()=>{ renderPalette(emojiPalette, (e,btn)=>{ if (!selected.includes(e)) selected.push(e); renderSelected(); }, emojiSearch.value); renderPalette(modalPalette, modalClick, emojiSearch.value); });
+
+function strToUint8(s){ return new TextEncoder().encode(s); }
+function uint8ToStr(u8){ return new TextDecoder().decode(u8); }
+
+async function getKey(){
+  const raw = strToUint8(EMBEDDED_KEY);
+  const hash = await crypto.subtle.digest('SHA-256', raw);
+  return await crypto.subtle.importKey('raw', hash, {name:'AES-GCM'}, false, ['encrypt','decrypt']);
+}
+
+function bytesToZW(u8){
+  let out = '';
+  for (let b of u8){
+    for (let i=7;i>=0;i--){
+      out += ((b>>i)&1) ? Z1 : Z0;
+    }
+  }
+  return out;
+}
+function zwToBytes(s){
+  const bits = [];
+  for (let ch of s){
+    if (ch === Z0) bits.push(0);
+    else if (ch === Z1) bits.push(1);
+  }
+  const bytes = new Uint8Array(Math.floor(bits.length/8));
+  for (let i=0;i+7<bits.length;i+=8){
+    let v=0;
+    for (let j=0;j<8;j++){ v = (v<<1) | bits[i+j]; }
+    bytes[i/8]=v;
+  }
+  return bytes;
+}
+
+function chunkBytes(u8, size){
+  const out=[];
+  for (let i=0;i<u8.length;i+=size) out.push(u8.slice(i, i+size));
+  return out;
+}
+async function encryptBytes(plainBytes){
+  const key = await getKey();
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv:iv}, key, plainBytes);
+  const ctU8 = new Uint8Array(ct);
+  const payload = new Uint8Array(iv.length + ctU8.length);
+  payload.set(iv,0);
+  payload.set(ctU8, iv.length);
+  return payload;
+}
+
+async function decryptBytes(payload){
+  const key = await getKey();
+  const iv = payload.slice(0,12);
+  const ct = payload.slice(12);
+  const plain = await crypto.subtle.decrypt({name:'AES-GCM', iv:iv}, key, ct);
+  return new Uint8Array(plain);
+}
+
+document.getElementById('doEncode').addEventListener('click', async ()=>{
+  encodedOutput.textContent = '';
+  let text = document.getElementById('plainText').value || '';
+  if (!text){ encodedOutput.textContent = ''; return; }
+  if (selected.length===0){ encodedOutput.textContent = ''; return; }
+  const segmentSize = Number(document.getElementById('segmentSize').value) || 512;
+  const maxRounds = Math.min(MAX_MODAL_ROUNDS, Number(document.getElementById('maxRounds').value) || 32);
+  const plainBytes = strToUint8(text);
+  const payload = await encryptBytes(plainBytes); // iv + ct
+  let chunks = chunkBytes(payload, segmentSize);
+  let outSegments = [];
+  let usedEmojis = [...selected];
+  let round = 0;
+  while (chunks.length > usedEmojis.length){
+    if (round >= maxRounds) break;
+    modalSelected = new Set(usedEmojis);
+    renderPalette(modalPalette, (e,btn)=>{
+      if (modalSelected.has(e)) modalSelected.delete(e); else modalSelected.add(e);
+      renderModalSelection();
+    });
+    modal.style.display='flex';
+    const res = await new Promise(resolve=>{
+      modalDone.onclick = ()=>{ resolve(true); modal.style.display='none'; };
+      closeModal.onclick = ()=>{ resolve(false); modal.style.display='none'; };
+    });
+    if (!res) break;
+    usedEmojis = Array.from(modalSelected);
+    round++;
+  }
+  for (let i=0;i<chunks.length;i++){
+    const emoji = usedEmojis[i % usedEmojis.length] || selected[i % selected.length];
+    const bits = bytesToZW(chunks[i]);
+    outSegments.push(emoji + bits);
+  }
+  encodedOutput.textContent = outSegments.join(SEPARATOR);
+});
+
+document.getElementById('doDecode').addEventListener('click', async ()=>{
+  decodedOutput.textContent = '';
+  let input = document.getElementById('encodedInput').value || '';
+  if (!input) return;
+  const parts = input.split(SEPARATOR).map(p=>p.trim()).filter(Boolean);
+  const payloadPieces = [];
+  for (let p of parts){
+    let idx = -1;
+    for (let i=0;i<p.length;i++){
+      const cp = p[i];
+      if (cp === Z0 || cp === Z1){ idx = i; break; }
+      const code = p.codePointAt(i);
+      if (code === 0x200B || code === 0x200C){ idx = i; break; }
+    }
+    if (idx===-1) continue;
+    const zw = p.slice(idx);
+    const bytes = zwToBytes(zw);
+    payloadPieces.push(bytes);
+  }
+  if (payloadPieces.length===0) return;
+  let totalLen = payloadPieces.reduce((s,a)=>s+a.length,0);
+  const joined = new Uint8Array(totalLen);
+  let offset=0;
+  for (let arr of payloadPieces){ joined.set(arr, offset); offset+=arr.length; }
+  try {
+    const plain = await decryptBytes(joined);
+    decodedOutput.textContent = uint8ToStr(plain);
+  } catch(e){
+    decodedOutput.textContent = 'Hiba: nem sikerült dekódolni.';
+  }
+});
+
+document.getElementById('copyEncoded').addEventListener('click', async ()=>{
+  const t = encodedOutput.textContent || '';
+  if (!t) return;
+  await navigator.clipboard.writeText(t);
+});
+document.getElementById('copyDecoded').addEventListener('click', async ()=>{
+  const t = decodedOutput.textContent || '';
+  if (!t) return;
+  await navigator.clipboard.writeText(t);
+});
+
+document.getElementById('clearEncode').addEventListener('click', ()=>{ document.getElementById('plainText').value=''; encodedOutput.textContent=''; });
+document.getElementById('clearDecode').addEventListener('click', ()=>{ document.getElementById('encodedInput').value=''; decodedOutput.textContent=''; });
+
+document.querySelectorAll('input[name="mode"]').forEach(r=>{
+  r.addEventListener('change',(ev)=>{
+    const v = ev.target.value;
+    document.getElementById('encodeArea').style.display = v==='encode' ? 'block' : 'none';
+    document.getElementById('decodeArea').style.display = v==='decode' ? 'block' : 'none';
+  });
+});
+
+renderPalette(emojiPalette, (e,btn)=>{
+  if (!selected.includes(e)) selected.push(e);
+  renderSelected();
+});
+renderPalette(modalPalette, (e,btn)=>{  });
+</script>
+</body>
+</html>
