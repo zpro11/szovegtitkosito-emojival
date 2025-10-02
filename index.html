@@ -117,19 +117,18 @@
 </div>
 
 <script>
-
 /*        Ez a kulcs: vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv  A program ez alapján dekódol és kódol. Ide megadhatsz bármilyen, legalább 40 karakter hosszú kulcsot, a két idézőjel közé. pl.: "w6#n=#VB6)Yu2%lve,_8W0n;6oKRr=p}HIbh>.nJ" és ha küldesz valakinek ilyen emojit, akkor ő csak akkor tudja dekódolni ha nála is ugyanaz a kulcs van beállítva mint nálad. A kulcsodat cseréld le az alap szövegre. (Alap szöveg: IDE_KELL_BEÍRNI_A_SAJÁT_KULCSOT_ÚGY_AHOGY_FELJEBB_LE_VAN_ÍRVA ) */
 
-const EMBEDDED_KEY = "IDE_KELL_BEÍRNI_A_SAJÁT_KULCSOT_ÚGY_AHOGY_FELJEBB_LE_VAN_ÍRVA";
+const KULCS = "IDE_KELL_BEÍRNI_A_SAJÁT_KULCSOT_ÚGY_AHOGY_FELJEBB_LE_VAN_ÍRVA";
 
 /* belső beállítások */
-const Z0 = '\u200B'; // 0
-const Z1 = '\u200C'; // 1
-const SEPARATOR = '-';
-const MAX_MODAL_ROUNDS = 128;
+const ZERÓ = '\u200B'; // 0
+const EGY = '\u200C'; // 1
+const ELVALASZTO = '-';
+const MAX_KÖR = 128;
 
 /* emoji lista (bővíthető) */
-const EMOJIS = [
+const EMOJIK = [
 "😀","😃","😄","😁","😆","😅","😂","🤣","😊","😇","🙂","🙃","😉","😌","😍","🥰",
 "😘","😗","😙","😚","😋","😛","😝","😜","🤪","🤨","🧐","🤓","😎","🤩","🥳","😏",
 "😒","😞","😔","😟","😕","🙁","☹️","😣","😖","😫","😩","🥺","😢","😭","😤","😠",
@@ -152,230 +151,229 @@ const EMOJIS = [
 ];
 
 /* UI elemek */
-const emojiPalette = document.getElementById('emojiPalette');
-const modalPalette = document.getElementById('modalPalette');
-const selectedEmojisDiv = document.getElementById('selectedEmojis');
-const openPaletteBtn = document.getElementById('openPaletteBtn');
-const modal = document.getElementById('modal');
-const modalDone = document.getElementById('modalDone');
-const closeModal = document.getElementById('closeModal');
-const emojiSearch = document.getElementById('emojiSearch');
-const modalPaletteEl = document.getElementById('modalPalette');
+const paletta = document.getElementById('emojiPalette');
+const modpaletta = document.getElementById('modalPalette');
+const kivEmojik = document.getElementById('selectedEmojis');
+const nyitPaletta = document.getElementById('openPaletteBtn');
+const ablak = document.getElementById('modal');
+const ablakKesz = document.getElementById('modalDone');
+const ablakZar = document.getElementById('closeModal');
+const keres = document.getElementById('emojiSearch');
+const modpalettaEl = document.getElementById('modalPalette');
 
-const encodedOutput = document.getElementById('encodedOutput');
-const decodedOutput = document.getElementById('decodedOutput');
+const kodoltKi = document.getElementById('encodedOutput');
+const dekodoltKi = document.getElementById('decodedOutput');
 
-let selected = [];
-let modalSelected = new Set();
+let kiv = [];
+let ablakKiv = new Set();
 
-function renderPalette(root, clickHandler, filter=""){
-  root.innerHTML = '';
-  const f = filter.trim().toLowerCase();
-  for (let e of EMOJIS){
-    if (f && !e.includes(f) && !emojiNameMatch(e, f)) continue;
-    const btn = document.createElement('button');
-    btn.className = 'emoji-btn';
-    btn.textContent = e;
-    btn.onclick = ()=>clickHandler(e, btn);
-    root.appendChild(btn);
+function rajzPaletta(gyökér, katt, szűrő=""){
+  gyökér.innerHTML = '';
+  const f = szűrő.trim().toLowerCase();
+  for (let e of EMOJIK){
+    if (f && !e.includes(f) && !emojiSzóEgyezik(e, f)) continue;
+    const gomb = document.createElement('button');
+    gomb.className = 'emoji-btn';
+    gomb.textContent = e;
+    gomb.onclick = ()=>katt(e, gomb);
+    gyökér.appendChild(gomb);
   }
 }
 // Emoji kereső szótár (pár gyakori emojihoz magyar kulcsszó)
-function emojiNameMatch(e, q){
-  const keywords = {
+function emojiSzóEgyezik(e, q){
+  const kulcsszavak = {
     "😀":"arc","🚀":"rakéta","🐱":"cica","🍕":"pizza","🎩":"kalap","📡":"antenna","🎵":"hangjegy",
     "🔥":"tűz","🌍":"Föld","😃":"arc2","😄":"arc3","😂":"nevet","😍":"szeret","👍":"like"
   };
-  const s = (keywords[e]||"").toLowerCase();
+  const s = (kulcsszavak[e]||"").toLowerCase();
   return s.includes(q);
 }
 
-function renderSelected(){
-  selectedEmojisDiv.innerHTML = '';
-  for (let i=0;i<selected.length;i++){
-    const e = selected[i];
+function rajzKiv(){
+  kivEmojik.innerHTML = '';
+  for (let i=0;i<kiv.length;i++){
+    const e = kiv[i];
     const b = document.createElement('button');
     b.className = 'emoji-btn';
     b.style.fontSize='20px';
     b.textContent = e;
-    const rem = document.createElement('button');
-    rem.textContent='✖';
-    rem.style.marginLeft='6px';
-    rem.className='ghost';
-    rem.onclick = ()=>{ selected.splice(i,1); renderSelected(); };
-    const wrapper = document.createElement('div');
-    wrapper.style.display='flex';
-    wrapper.style.alignItems='center';
-    wrapper.appendChild(b);
-    wrapper.appendChild(rem);
-    selectedEmojisDiv.appendChild(wrapper);
+    const eltav = document.createElement('button');
+    eltav.textContent='✖';
+    eltav.style.marginLeft='6px';
+    eltav.className='ghost';
+    eltav.onclick = ()=>{ kiv.splice(i,1); rajzKiv(); };
+    const csomag = document.createElement('div');
+    csomag.style.display='flex';
+    csomag.style.alignItems='center';
+    csomag.appendChild(b);
+    csomag.appendChild(eltav);
+    kivEmojik.appendChild(csomag);
   }
 }
 
-renderPalette(emojiPalette, (e,btn)=>{
-  if (!selected.includes(e)) selected.push(e);
-  renderSelected();
+rajzPaletta(paletta, (e,gomb)=>{
+  if (!kiv.includes(e)) kiv.push(e);
+  rajzKiv();
 });
-openPaletteBtn.onclick = ()=>{ modalSelected = new Set(selected); renderPalette(modalPalette, modalClick); modal.style.display='flex'; }
-closeModal.onclick = ()=>{ modal.style.display='none'; }
-modalDone.onclick = ()=>{
-  selected = Array.from(modalSelected);
-  renderSelected();
-  modal.style.display='none';
+nyitPaletta.onclick = ()=>{ ablakKiv = new Set(kiv); rajzPaletta(modpaletta, ablakKatt); ablak.style.display='flex'; }
+ablakZar.onclick = ()=>{ ablak.style.display='none'; }
+ablakKesz.onclick = ()=>{
+  kiv = Array.from(ablakKiv);
+  rajzKiv();
+  ablak.style.display='none';
 };
-function modalClick(e,btn){
-  if (modalSelected.has(e)) modalSelected.delete(e);
-  else modalSelected.add(e);
-  // visual
-  renderModalSelection();
+function ablakKatt(e,gomb){
+  if (ablakKiv.has(e)) ablakKiv.delete(e);
+  else ablakKiv.add(e);
+  rajzAblakKiv();
 }
-function renderModalSelection(){
-  modalPalette.querySelectorAll('.emoji-btn').forEach(b=>{
+function rajzAblakKiv(){
+  modpaletta.querySelectorAll('.emoji-btn').forEach(b=>{
     const ch = b.textContent;
-    if (modalSelected.has(ch)) b.classList.add('selected'); else b.classList.remove('selected');
+    if (ablakKiv.has(ch)) b.classList.add('selected'); else b.classList.remove('selected');
   });
 }
-emojiSearch.addEventListener('input', ()=>{ renderPalette(emojiPalette, (e,btn)=>{ if (!selected.includes(e)) selected.push(e); renderSelected(); }, emojiSearch.value); renderPalette(modalPalette, modalClick, emojiSearch.value); });
+keres.addEventListener('input', ()=>{ rajzPaletta(paletta, (e,gomb)=>{ if (!kiv.includes(e)) kiv.push(e); rajzKiv(); }, keres.value); rajzPaletta(modpaletta, ablakKatt, keres.value); });
 
-function strToUint8(s){ return new TextEncoder().encode(s); }
-function uint8ToStr(u8){ return new TextDecoder().decode(u8); }
+function szövegBájt(s){ return new TextEncoder().encode(s); }
+function bájtSzöveg(u8){ return new TextDecoder().decode(u8); }
 
-async function getKey(){
-  const raw = strToUint8(EMBEDDED_KEY);
-  const hash = await crypto.subtle.digest('SHA-256', raw);
+async function kulcsLekér(){
+  const nyers = szövegBájt(KULCS);
+  const hash = await crypto.subtle.digest('SHA-256', nyers);
   return await crypto.subtle.importKey('raw', hash, {name:'AES-GCM'}, false, ['encrypt','decrypt']);
 }
 
-function bytesToZW(u8){
-  let out = '';
+function bájtZW(u8){
+  let ki = '';
   for (let b of u8){
     for (let i=7;i>=0;i--){
-      out += ((b>>i)&1) ? Z1 : Z0;
+      ki += ((b>>i)&1) ? EGY : ZERÓ;
     }
   }
-  return out;
+  return ki;
 }
-function zwToBytes(s){
-  const bits = [];
+function zwBájt(s){
+  const bitek = [];
   for (let ch of s){
-    if (ch === Z0) bits.push(0);
-    else if (ch === Z1) bits.push(1);
+    if (ch === ZERÓ) bitek.push(0);
+    else if (ch === EGY) bitek.push(1);
   }
-  const bytes = new Uint8Array(Math.floor(bits.length/8));
-  for (let i=0;i+7<bits.length;i+=8){
+  const bájtok = new Uint8Array(Math.floor(bitek.length/8));
+  for (let i=0;i+7<bitek.length;i+=8){
     let v=0;
-    for (let j=0;j<8;j++){ v = (v<<1) | bits[i+j]; }
-    bytes[i/8]=v;
+    for (let j=0;j<8;j++){ v = (v<<1) | bitek[i+j]; }
+    bájtok[i/8]=v;
   }
-  return bytes;
+  return bájtok;
 }
 
-function chunkBytes(u8, size){
-  const out=[];
-  for (let i=0;i<u8.length;i+=size) out.push(u8.slice(i, i+size));
-  return out;
+function darabBájt(u8, méret){
+  const ki=[];
+  for (let i=0;i<u8.length;i+=méret) ki.push(u8.slice(i, i+méret));
+  return ki;
 }
-async function encryptBytes(plainBytes){
-  const key = await getKey();
+async function titkosítBájt(simaBájt){
+  const kulcs = await kulcsLekér();
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv:iv}, key, plainBytes);
+  const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv:iv}, kulcs, simaBájt);
   const ctU8 = new Uint8Array(ct);
-  const payload = new Uint8Array(iv.length + ctU8.length);
-  payload.set(iv,0);
-  payload.set(ctU8, iv.length);
-  return payload;
+  const csomag = new Uint8Array(iv.length + ctU8.length);
+  csomag.set(iv,0);
+  csomag.set(ctU8, iv.length);
+  return csomag;
 }
 
-async function decryptBytes(payload){
-  const key = await getKey();
-  const iv = payload.slice(0,12);
-  const ct = payload.slice(12);
-  const plain = await crypto.subtle.decrypt({name:'AES-GCM', iv:iv}, key, ct);
-  return new Uint8Array(plain);
+async function visszafejtBájt(csomag){
+  const kulcs = await kulcsLekér();
+  const iv = csomag.slice(0,12);
+  const ct = csomag.slice(12);
+  const sima = await crypto.subtle.decrypt({name:'AES-GCM', iv:iv}, kulcs, ct);
+  return new Uint8Array(sima);
 }
 
 document.getElementById('doEncode').addEventListener('click', async ()=>{
-  encodedOutput.textContent = '';
-  let text = document.getElementById('plainText').value || '';
-  if (!text){ encodedOutput.textContent = ''; return; }
-  if (selected.length===0){ encodedOutput.textContent = ''; return; }
-  const segmentSize = Number(document.getElementById('segmentSize').value) || 512;
-  const maxRounds = Math.min(MAX_MODAL_ROUNDS, Number(document.getElementById('maxRounds').value) || 32);
-  const plainBytes = strToUint8(text);
-  const payload = await encryptBytes(plainBytes); // iv + ct
-  let chunks = chunkBytes(payload, segmentSize);
-  let outSegments = [];
-  let usedEmojis = [...selected];
-  let round = 0;
-  while (chunks.length > usedEmojis.length){
-    if (round >= maxRounds) break;
-    modalSelected = new Set(usedEmojis);
-    renderPalette(modalPalette, (e,btn)=>{
-      if (modalSelected.has(e)) modalSelected.delete(e); else modalSelected.add(e);
-      renderModalSelection();
+  kodoltKi.textContent = '';
+  let szöveg = document.getElementById('plainText').value || '';
+  if (!szöveg){ kodoltKi.textContent = ''; return; }
+  if (kiv.length===0){ kodoltKi.textContent = ''; return; }
+  const szegmens = Number(document.getElementById('segmentSize').value) || 512;
+  const maxKor = Math.min(MAX_KÖR, Number(document.getElementById('maxRounds').value) || 32);
+  const simaBájt = szövegBájt(szöveg);
+  const csomag = await titkosítBájt(simaBájt);
+  let darabok = darabBájt(csomag, szegmens);
+  let kiDarabok = [];
+  let hasznEmojik = [...kiv];
+  let kör = 0;
+  while (darabok.length > hasznEmojik.length){
+    if (kör >= maxKor) break;
+    ablakKiv = new Set(hasznEmojik);
+    rajzPaletta(modpaletta, (e,gomb)=>{
+      if (ablakKiv.has(e)) ablakKiv.delete(e); else ablakKiv.add(e);
+      rajzAblakKiv();
     });
-    modal.style.display='flex';
+    ablak.style.display='flex';
     const res = await new Promise(resolve=>{
-      modalDone.onclick = ()=>{ resolve(true); modal.style.display='none'; };
-      closeModal.onclick = ()=>{ resolve(false); modal.style.display='none'; };
+      ablakKesz.onclick = ()=>{ resolve(true); ablak.style.display='none'; };
+      ablakZar.onclick = ()=>{ resolve(false); ablak.style.display='none'; };
     });
     if (!res) break;
-    usedEmojis = Array.from(modalSelected);
-    round++;
+    hasznEmojik = Array.from(ablakKiv);
+    kör++;
   }
-  for (let i=0;i<chunks.length;i++){
-    const emoji = usedEmojis[i % usedEmojis.length] || selected[i % selected.length];
-    const bits = bytesToZW(chunks[i]);
-    outSegments.push(emoji + bits);
+  for (let i=0;i<darabok.length;i++){
+    const emoji = hasznEmojik[i % hasznEmojik.length] || kiv[i % kiv.length];
+    const bitek = bájtZW(darabok[i]);
+    kiDarabok.push(emoji + bitek);
   }
-  encodedOutput.textContent = outSegments.join(SEPARATOR);
+  kodoltKi.textContent = kiDarabok.join(ELVALASZTO);
 });
 
 document.getElementById('doDecode').addEventListener('click', async ()=>{
-  decodedOutput.textContent = '';
-  let input = document.getElementById('encodedInput').value || '';
-  if (!input) return;
-  const parts = input.split(SEPARATOR).map(p=>p.trim()).filter(Boolean);
-  const payloadPieces = [];
-  for (let p of parts){
+  dekodoltKi.textContent = '';
+  let bevitel = document.getElementById('encodedInput').value || '';
+  if (!bevitel) return;
+  const részek = bevitel.split(ELVALASZTO).map(p=>p.trim()).filter(Boolean);
+  const csomagDarabok = [];
+  for (let p of részek){
     let idx = -1;
     for (let i=0;i<p.length;i++){
       const cp = p[i];
-      if (cp === Z0 || cp === Z1){ idx = i; break; }
-      const code = p.codePointAt(i);
-      if (code === 0x200B || code === 0x200C){ idx = i; break; }
+      if (cp === ZERÓ || cp === EGY){ idx = i; break; }
+      const kód = p.codePointAt(i);
+      if (kód === 0x200B || kód === 0x200C){ idx = i; break; }
     }
     if (idx===-1) continue;
     const zw = p.slice(idx);
-    const bytes = zwToBytes(zw);
-    payloadPieces.push(bytes);
+    const bájtok = zwBájt(zw);
+    csomagDarabok.push(bájtok);
   }
-  if (payloadPieces.length===0) return;
-  let totalLen = payloadPieces.reduce((s,a)=>s+a.length,0);
-  const joined = new Uint8Array(totalLen);
-  let offset=0;
-  for (let arr of payloadPieces){ joined.set(arr, offset); offset+=arr.length; }
+  if (csomagDarabok.length===0) return;
+  let összHossz = csomagDarabok.reduce((s,a)=>s+a.length,0);
+  const össz = new Uint8Array(összHossz);
+  let eltol=0;
+  for (let arr of csomagDarabok){ össz.set(arr, eltol); eltol+=arr.length; }
   try {
-    const plain = await decryptBytes(joined);
-    decodedOutput.textContent = uint8ToStr(plain);
+    const sima = await visszafejtBájt(össz);
+    dekodoltKi.textContent = bájtSzöveg(sima);
   } catch(e){
-    decodedOutput.textContent = 'Hiba: nem sikerült dekódolni.';
+    dekodoltKi.textContent = 'Hiba: nem sikerült dekódolni.';
   }
 });
 
 document.getElementById('copyEncoded').addEventListener('click', async ()=>{
-  const t = encodedOutput.textContent || '';
+  const t = kodoltKi.textContent || '';
   if (!t) return;
   await navigator.clipboard.writeText(t);
 });
 document.getElementById('copyDecoded').addEventListener('click', async ()=>{
-  const t = decodedOutput.textContent || '';
+  const t = dekodoltKi.textContent || '';
   if (!t) return;
   await navigator.clipboard.writeText(t);
 });
 
-document.getElementById('clearEncode').addEventListener('click', ()=>{ document.getElementById('plainText').value=''; encodedOutput.textContent=''; });
-document.getElementById('clearDecode').addEventListener('click', ()=>{ document.getElementById('encodedInput').value=''; decodedOutput.textContent=''; });
+document.getElementById('clearEncode').addEventListener('click', ()=>{ document.getElementById('plainText').value=''; kodoltKi.textContent=''; });
+document.getElementById('clearDecode').addEventListener('click', ()=>{ document.getElementById('encodedInput').value=''; dekodoltKi.textContent=''; });
 
 document.querySelectorAll('input[name="mode"]').forEach(r=>{
   r.addEventListener('change',(ev)=>{
@@ -385,11 +383,11 @@ document.querySelectorAll('input[name="mode"]').forEach(r=>{
   });
 });
 
-renderPalette(emojiPalette, (e,btn)=>{
-  if (!selected.includes(e)) selected.push(e);
-  renderSelected();
+rajzPaletta(paletta, (e,gomb)=>{
+  if (!kiv.includes(e)) kiv.push(e);
+  rajzKiv();
 });
-renderPalette(modalPalette, (e,btn)=>{  });
+rajzPaletta(modpaletta, (e,gomb)=>{  });
 </script>
 </body>
 </html>
